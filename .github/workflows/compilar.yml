@@ -1,0 +1,47 @@
+name: Compilar app iOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  compilar:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar XcodeGen
+        run: brew install xcodegen
+
+      - name: Generar proyecto de Xcode
+        run: xcodegen generate
+
+      - name: Compilar (sin firmar)
+        run: |
+          set -o pipefail
+          xcodebuild -project MisGastos.xcodeproj \
+            -target MisGastos \
+            -configuration Release \
+            -sdk iphoneos \
+            CONFIGURATION_BUILD_DIR="$PWD/build/out" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            -quiet \
+            build
+
+      - name: Empaquetar .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/out/MisGastos.app Payload/
+          zip -qr MisGastos.ipa Payload
+          ls -lh MisGastos.ipa
+
+      - name: Subir .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: MisGastos-ipa
+          path: MisGastos.ipa
+          retention-days: 14
